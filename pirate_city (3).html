@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Остров Черепахи — Пиратский Город</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Pirata+One&family=IM+Fell+English:ital@0;1&family=Cinzel+Decorative:wght@700&display=swap');
+  :root {
+    --gold: #c9a84c;
+    --dark: #0a0705;
+    --wood: #3b2a1a;
+    --sand: #d4b483;
+    --ocean: #1a3a4a;
+    --blood: #8b1a1a;
+    --fog: rgba(180,160,100,0.08);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0a0705; color:#d4b483; font-family:'IM Fell English',serif; overflow:hidden; user-select:none; }
+
+  /* ===== SCREENS ===== */
+  #mainMenu, #buildMenu, #fpsGame {
+    position:fixed; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center;
+  }
+  #mainMenu { display:flex; background: radial-gradient(ellipse at 50% 30%, #1a2a1a 0%, #0a0705 70%); }
+
+  /* BACKGROUND ISLAND ART */
+  #mainMenu::before {
+    content:'';
+    position:absolute; inset:0;
+    background:
+      radial-gradient(ellipse 60% 30% at 50% 80%, #1c3a28 0%, transparent 60%),
+      radial-gradient(ellipse 80% 40% at 50% 90%, #0d1f14 0%, transparent 50%);
+    pointer-events:none;
+  }
+
+  .title-wrap { text-align:center; z-index:2; }
+  .title-main {
+    font-family:'Cinzel Decorative',serif; font-size:3.5rem; color:var(--gold);
+    text-shadow: 0 0 40px rgba(201,168,76,0.6), 0 2px 0 #000;
+    letter-spacing:4px; line-height:1;
+  }
+  .title-sub { font-family:'Pirata One',serif; font-size:1.6rem; color:#a08050; margin-top:.3rem; }
+
+  .menu-btns { display:flex; flex-direction:column; gap:14px; margin-top:2.5rem; z-index:2; }
+  .mbtn {
+    padding:14px 60px; font-family:'Pirata One',serif; font-size:1.3rem;
+    background:linear-gradient(135deg,#2a1a0a,#3b2a1a);
+    border:2px solid var(--gold); color:var(--gold); cursor:pointer;
+    clip-path:polygon(10px 0,100% 0,calc(100% - 10px) 100%,0 100%);
+    transition:all .2s; letter-spacing:2px;
+    text-shadow:0 0 10px rgba(201,168,76,0.4);
+  }
+  .mbtn:hover { background:linear-gradient(135deg,#3b2a0a,#5a3a1a); box-shadow:0 0 20px rgba(201,168,76,0.3); }
+
+  /* ===== BUILD MODE ===== */
+  #buildMenu { background:#0a0a0a; flex-direction:row; }
+  #islandCanvas { border:3px solid #2a1a0a; cursor:crosshair; }
+
+  #buildPanel {
+    width:220px; background:linear-gradient(180deg,#120d08,#0a0705);
+    border-left:2px solid var(--wood); padding:16px; display:flex; flex-direction:column; gap:8px;
+    overflow-y:auto;
+  }
+  #buildPanel h2 { font-family:'Pirata One',serif; color:var(--gold); font-size:1.2rem; border-bottom:1px solid var(--wood); padding-bottom:6px; margin-bottom:4px; }
+  .bcat { font-size:.75rem; color:#806040; margin-top:8px; text-transform:uppercase; letter-spacing:1px; }
+  .bitem {
+    padding:8px 10px; background:#1a1008; border:1px solid #3a2a1a; color:var(--sand);
+    cursor:pointer; font-size:.85rem; display:flex; align-items:center; gap:8px;
+    transition:all .15s; border-radius:2px;
+  }
+  .bitem:hover, .bitem.active { background:#2a1a08; border-color:var(--gold); color:var(--gold); }
+  .bitem .ico { font-size:1.2rem; }
+  .res-bar { display:flex; gap:10px; flex-wrap:wrap; padding:6px 10px; background:#100c06; border:1px solid var(--wood); border-radius:2px; font-size:.8rem; }
+  .res { display:flex; align-items:center; gap:4px; }
+  #buildInfo { font-size:.75rem; color:#806040; font-style:italic; margin-top:4px; }
+  #backBtn, #battleBtn {
+    margin-top:auto; padding:10px; font-family:'Pirata One',serif; font-size:1rem;
+    background:linear-gradient(135deg,#2a1a0a,#3b2a1a); border:1px solid var(--gold);
+    color:var(--gold); cursor:pointer; letter-spacing:1px;
+  }
+  #battleBtn { background:linear-gradient(135deg,#3a0808,#6a1010); border-color:#8b2020; color:#ff8080; margin-top:8px; }
+
+  /* ===== FPS GAME ===== */
+  #fpsGame { background:#000; }
+  #fpsCanvas { display:block; }
+  #hud {
+    position:fixed; inset:0; pointer-events:none;
+    display:none;
+  }
+  #crosshair {
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:20px; height:20px;
+  }
+  #crosshair::before, #crosshair::after {
+    content:''; position:absolute; background:rgba(255,255,255,0.8);
+  }
+  #crosshair::before { width:2px; height:100%; left:50%; transform:translateX(-50%); }
+  #crosshair::after { width:100%; height:2px; top:50%; transform:translateY(-50%); }
+
+  #healthBar {
+    position:absolute; bottom:30px; left:30px;
+    width:200px; height:18px; background:#1a0808; border:1px solid #8b2020;
+  }
+  #healthFill { height:100%; background:linear-gradient(90deg,#8b0000,#cc2020); transition:width .3s; }
+  #healthText { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:.75rem; color:#fff; font-family:'Pirata One',serif; }
+
+  #ammoDisplay {
+    position:absolute; bottom:30px; right:30px; text-align:right;
+    font-family:'Pirata One',serif; color:var(--gold); font-size:1.4rem;
+    text-shadow:0 0 10px rgba(201,168,76,0.5);
+  }
+  #weaponName { font-size:.8rem; color:#a08050; }
+
+  #killFeed {
+    position:absolute; top:20px; right:20px; display:flex; flex-direction:column; gap:4px; align-items:flex-end;
+  }
+  .kfeed { font-family:'Pirata One',serif; color:#ff6060; font-size:.85rem; animation:fadeOut 3s forwards; }
+  @keyframes fadeOut { 0%{opacity:1} 70%{opacity:1} 100%{opacity:0} }
+
+  #scoreBoard { position:absolute; top:20px; left:20px; font-family:'Pirata One',serif; color:var(--gold); font-size:1rem; }
+  #waveInfo { font-size:.8rem; color:#a08050; }
+
+  #deathScreen {
+    position:fixed; inset:0; background:rgba(80,0,0,0.85); display:none;
+    flex-direction:column; align-items:center; justify-content:center;
+    font-family:'Pirata One',serif; z-index:100;
+  }
+  #deathScreen h1 { font-size:4rem; color:#ff3030; text-shadow:0 0 40px #ff0000; }
+  #deathScreen p { color:#d4b483; margin:10px 0 20px; font-size:1.2rem; }
+  .ds-btn { padding:12px 40px; font-family:'Pirata One',serif; font-size:1.1rem; background:#2a0808; border:2px solid #8b2020; color:#ff8080; cursor:pointer; margin:6px; }
+  .ds-btn:hover { background:#3a1010; }
+
+  #pauseScreen {
+    position:fixed; inset:0; background:rgba(0,0,0,0.7); display:none;
+    flex-direction:column; align-items:center; justify-content:center;
+    font-family:'Pirata One',serif; z-index:99;
+  }
+  #pauseScreen h2 { font-size:2.5rem; color:var(--gold); margin-bottom:20px; }
+
+  /* FOOTER */
+  #footer {
+    position:fixed; bottom:0; left:0; right:0; z-index:200;
+    background:rgba(10,7,5,0.9); border-top:1px solid #2a1a0a;
+    text-align:center; padding:4px;
+    font-family:'IM Fell English',serif; font-size:.7rem; color:#604830;
+    letter-spacing:1px;
+  }
+  #footer span { color:#806040; }
+
+  /* Minimap */
+  #minimap {
+    position:absolute; bottom:80px; right:30px;
+    width:120px; height:120px; border:1px solid var(--gold);
+    background:rgba(0,0,0,0.6); overflow:hidden;
+  }
+  #minimapCanvas { width:100%; height:100%; }
+
+  /* Tooltip */
+  #tooltip {
+    position:fixed; pointer-events:none; padding:6px 10px;
+    background:#0a0705; border:1px solid var(--gold); color:var(--sand);
+    font-size:.75rem; z-index:300; display:none; max-width:160px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ MAIN MENU ============ -->
+<div id="mainMenu">
+  <div class="title-wrap">
+    <div class="title-main">🏴‍☠️ Libertalia</div>
+    <div class="title-sub">Остров Черепахи · Пиратский Город</div>
+  </div>
+  <div class="menu-btns">
+    <button class="mbtn" onclick="showBuild()">⚒ Строить Город</button>
+    <button class="mbtn" onclick="quickBattle()">⚔ Быстрый Бой</button>
+    <button class="mbtn" onclick="showAbout()">📜 О Либерталии</button>
+  </div>
+  <canvas id="menuBg" style="position:absolute;inset:0;z-index:0;opacity:.4"></canvas>
+</div>
+
+<!-- ============ BUILD MODE ============ -->
+<div id="buildMenu">
+  <canvas id="islandCanvas"></canvas>
+  <div id="buildPanel">
+    <h2>🏴‍☠️ Стройка</h2>
+    <div class="res-bar">
+      <div class="res">🪵 <span id="resWood">120</span></div>
+      <div class="res">🪨 <span id="resStone">80</span></div>
+      <div class="res">💰 <span id="resGold">200</span></div>
+      <div class="res">👷 <span id="resPop">0</span>/50</div>
+    </div>
+
+    <div class="bcat">Жильё</div>
+    <div class="bitem active" data-type="hut" onclick="selectBuild(this,'hut')"><span class="ico">🛖</span> Хижина (5🪵)</div>
+    <div class="bitem" data-type="mansion" onclick="selectBuild(this,'mansion')"><span class="ico">🏛</span> Особняк (30🪵 20🪨)</div>
+    <div class="bitem" data-type="tavern" onclick="selectBuild(this,'tavern')"><span class="ico">🍺</span> Таверна (15🪵 10💰)</div>
+
+    <div class="bcat">Укрепления</div>
+    <div class="bitem" data-type="wall" onclick="selectBuild(this,'wall')"><span class="ico">🧱</span> Стена (3🪨)</div>
+    <div class="bitem" data-type="tower" onclick="selectBuild(this,'tower')"><span class="ico">🗼</span> Башня (10🪨 5🪵)</div>
+    <div class="bitem" data-type="cannon" onclick="selectBuild(this,'cannon')"><span class="ico">💣</span> Пушка (15🪨 10💰)</div>
+
+    <div class="bcat">Порт</div>
+    <div class="bitem" data-type="dock" onclick="selectBuild(this,'dock')"><span class="ico">⚓</span> Верфь (20🪵 10🪨)</div>
+    <div class="bitem" data-type="warehouse" onclick="selectBuild(this,'warehouse')"><span class="ico">🏪</span> Склад (12🪵)</div>
+    <div class="bitem" data-type="lighthouse" onclick="selectBuild(this,'lighthouse')"><span class="ico">🔦</span> Маяк (18🪵 12🪨)</div>
+
+    <div class="bcat">Удалить</div>
+    <div class="bitem" data-type="delete" onclick="selectBuild(this,'delete')"><span class="ico">🗑</span> Снести</div>
+
+    <div id="buildInfo">Выберите здание и кликните на остров</div>
+    <button id="battleBtn" onclick="startFPS()">⚔ В БОЙ!</button>
+    <button id="backBtn" onclick="showMenu()">← Меню</button>
+  </div>
+</div>
+
+<!-- ============ FPS GAME ============ -->
+<div id="fpsGame">
+  <canvas id="fpsCanvas"></canvas>
+  <div id="hud">
+    <div id="crosshair"></div>
+    <div id="healthBar"><div id="healthFill"></div><div id="healthText">100 HP</div></div>
+    <div id="ammoDisplay">
+      <div id="weaponName">Пистолет</div>
+      <span id="ammoCount">12 / 48</span>
+    </div>
+    <div id="killFeed"></div>
+    <div id="scoreBoard">
+      <div>💀 Убито: <span id="kills">0</span></div>
+      <div id="waveInfo">Волна 1</div>
+    </div>
+    <div id="minimap"><canvas id="minimapCanvas" width="120" height="120"></canvas></div>
+  </div>
+</div>
+
+<!-- DEATH SCREEN -->
+<div id="deathScreen">
+  <h1>☠ УБИТ ☠</h1>
+  <p id="deathMsg">Пираты одолели тебя...</p>
+  <button class="ds-btn" onclick="restartFPS()">⚔ Снова в бой</button>
+  <button class="ds-btn" onclick="showBuild()">🏗 В город</button>
+  <button class="ds-btn" onclick="showMenu()">🏠 Меню</button>
+</div>
+
+<!-- PAUSE SCREEN -->
+<div id="pauseScreen">
+  <h2>⏸ Пауза</h2>
+  <button class="mbtn" onclick="resumeGame()">▶ Продолжить</button>
+  <button class="mbtn" onclick="showBuild()">🏗 В город</button>
+  <button class="mbtn" onclick="showMenu()">🏠 Меню</button>
+</div>
+
+<!-- FOOTER -->
+<div id="footer">
+  <span>Руководящий проектом: pryinglice040005</span> &nbsp;|&nbsp; <span>Кодер: deleted2281337</span>
+</div>
+
+<div id="tooltip"></div>
+
+<script>
+// ==========================================
+//  UTILITIES
+// ==========================================
+const $ = id => document.getElementById(id);
+
+function showMenu() {
+  $('mainMenu').style.display = 'flex';
+  $('buildMenu').style.display = 'none';
+  $('fpsGame').style.display = 'none';
+  $('hud').style.display = 'none';
+  $('deathScreen').style.display = 'none';
+  $('pauseScreen').style.display = 'none';
+  if (animId) { cancelAnimationFrame(animId); animId = null; }
+  document.exitPointerLock && document.exitPointerLock();
+  drawMenuBg();
+}
+function showBuild() {
+  $('mainMenu').style.display = 'none';
+  $('buildMenu').style.display = 'flex';
+  $('fpsGame').style.display = 'none';
+  $('hud').style.display = 'none';
+  $('deathScreen').style.display = 'none';
+  $('pauseScreen').style.display = 'none';
+  if (animId) { cancelAnimationFrame(animId); animId = null; }
+  document.exitPointerLock && document.exitPointerLock();
+  initBuild();
+}
+function showAbout() {
+  alert('Либерталия — легендарный пиратский город на Острове Черепахи.\nВ Uncharted 4: A Thief\'s End Натан Дрейк ищет это затерянное сокровище.\nПостройте свою Либерталию, защитите её от врагов и сражайтесь как настоящий пират!');
+}
+function quickBattle() { showBuild(); setTimeout(startFPS, 100); }
+
+// ==========================================
+//  MENU BACKGROUND ANIMATION
+// ==========================================
+function drawMenuBg() {
+  const c = $('menuBg');
+  if (!c) return;
+  c.width = window.innerWidth; c.height = window.innerHeight;
+  const ctx = c.getContext('2d');
+  let t = 0;
+  function frame() {
+    if ($('mainMenu').style.display === 'none') return;
+    ctx.clearRect(0,0,c.width,c.height);
+    // ocean waves
+    for (let i=0; i<6; i++) {
+      ctx.beginPath();
+      ctx.moveTo(0, c.height*0.5 + Math.sin(t*0.5+i)*20 + i*30);
+      for (let x=0;x<c.width;x+=20) {
+        ctx.lineTo(x, c.height*0.5 + Math.sin(t*0.5+x*0.01+i)*15+i*30);
+      }
+      ctx.lineTo(c.width,c.height); ctx.lineTo(0,c.height); ctx.closePath();
+      ctx.fillStyle = `rgba(20,50,70,${0.15+i*0.05})`;
+      ctx.fill();
+    }
+    // stars
+    for (let i=0;i<80;i++) {
+      const sx = (Math.sin(i*137.5)*0.5+0.5)*c.width;
+      const sy = (Math.cos(i*97.3)*0.5+0.5)*c.height*0.5;
+      ctx.beginPath(); ctx.arc(sx,sy,0.8,0,Math.PI*2);
+      ctx.fillStyle = `rgba(255,240,200,${0.3+Math.sin(t+i)*0.2})`; ctx.fill();
+    }
+    // flying seagulls
+    for (let i=0;i<5;i++) {
+      const bx = ((t*20+i*200) % (c.width+100)) - 50;
+      const by = 80+i*30+Math.sin(t+i)*10;
+      ctx.strokeStyle='rgba(180,160,100,0.4)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(bx-10,by); ctx.quadraticCurveTo(bx,by-6,bx+10,by); ctx.stroke();
+    }
+    t += 0.02;
+    requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+// ==========================================
+//  BUILD MODE
+// ==========================================
+const TILE = 40;
+let buildCanvas, buildCtx, gridW, gridH, grid, buildType = 'hut';
+let resources = { wood:120, stone:80, gold:200, pop:0 };
+const BUILDINGS = {
+  hut:       { name:'Хижина',   emoji:'🛖', cost:{wood:5},            color:'#5a3a1a', pop:2, hp:30 },
+  mansion:   { name:'Особняк',  emoji:'🏛', cost:{wood:30,stone:20},  color:'#8a7050', pop:5, hp:100 },
+  tavern:    { name:'Таверна',  emoji:'🍺', cost:{wood:15,gold:10},   color:'#6a3a10', pop:0, hp:50 },
+  wall:      { name:'Стена',    emoji:'🧱', cost:{stone:3},            color:'#5a5040', pop:0, hp:80 },
+  tower:     { name:'Башня',    emoji:'🗼', cost:{stone:10,wood:5},   color:'#6a5a30', pop:1, hp:120 },
+  cannon:    { name:'Пушка',    emoji:'💣', cost:{stone:15,gold:10},  color:'#3a3a3a', pop:1, hp:60 },
+  dock:      { name:'Верфь',    emoji:'⚓', cost:{wood:20,stone:10},  color:'#2a4a5a', pop:3, hp:70 },
+  warehouse: { name:'Склад',    emoji:'🏪', cost:{wood:12},           color:'#4a3a20', pop:1, hp:60 },
+  lighthouse:{ name:'Маяк',     emoji:'🔦', cost:{wood:18,stone:12},  color:'#7a6a40', pop:0, hp:50 },
+};
+let islandMask = [];
+
+function initBuild() {
+  buildCanvas = $('islandCanvas');
+  buildCanvas.width = window.innerWidth - 220;
+  buildCanvas.height = window.innerHeight;
+  buildCtx = buildCanvas.getContext('2d');
+  gridW = Math.floor(buildCanvas.width / TILE);
+  gridH = Math.floor(buildCanvas.height / TILE);
+
+  if (!grid) {
+    grid = Array.from({length:gridH}, ()=>Array(gridW).fill(null));
+    // Pre-place mansions on Tortuga-like island
+    generateIsland();
+  }
+  updateResUI();
+  renderBuild();
+
+  buildCanvas.onmousemove = e => {
+    const tx = Math.floor(e.offsetX/TILE), ty = Math.floor(e.offsetY/TILE);
+    const tip = $('tooltip');
+    if (grid[ty]?.[tx]) {
+      const b = BUILDINGS[grid[ty][tx]];
+      tip.style.display = 'block';
+      tip.style.left = (e.clientX+10)+'px'; tip.style.top = (e.clientY-30)+'px';
+      tip.textContent = b.name + ' HP:'+b.hp;
+    } else { tip.style.display='none'; }
+    renderBuild(tx, ty);
+  };
+  buildCanvas.onmouseleave = () => { $('tooltip').style.display='none'; renderBuild(); };
+  buildCanvas.onclick = e => {
+    const tx = Math.floor(e.offsetX/TILE), ty = Math.floor(e.offsetY/TILE);
+    if (!islandMask[ty]?.[tx]) return;
+    if (buildType === 'delete') {
+      if (grid[ty][tx]) {
+        const b = BUILDINGS[grid[ty][tx]];
+        resources.wood += Math.floor((b.cost.wood||0)*0.5);
+        resources.stone += Math.floor((b.cost.stone||0)*0.5);
+        resources.gold += Math.floor((b.cost.gold||0)*0.5);
+        resources.pop -= b.pop||0;
+        grid[ty][tx] = null;
+        updateResUI(); renderBuild();
+      }
+      return;
+    }
+    if (grid[ty][tx]) return;
+    const b = BUILDINGS[buildType];
+    if (!canAfford(b.cost)) { flash('Недостаточно ресурсов!'); return; }
+    spend(b.cost);
+    resources.pop += b.pop||0;
+    grid[ty][tx] = buildType;
+    updateResUI(); renderBuild();
+  };
+}
+
+function generateIsland() {
+  islandMask = Array.from({length:gridH}, ()=>Array(gridW).fill(false));
+  const cx = gridW/2, cy = gridH/2;
+  const rx = gridW*0.38, ry = gridH*0.38;
+  for (let y=0;y<gridH;y++) for (let x=0;x<gridW;x++) {
+    const dx=(x-cx)/rx, dy=(y-cy)/ry;
+    const noise = Math.sin(x*0.4)*0.12+Math.cos(y*0.35)*0.12+Math.sin((x+y)*0.2)*0.08;
+    if (dx*dx+dy*dy < 0.85+noise) islandMask[y][x]=true;
+  }
+  // Pre-place Libertalia buildings
+  const placements = [
+    [Math.round(cx-2),Math.round(cy-2),'mansion'],[Math.round(cx+2),Math.round(cy-2),'mansion'],
+    [Math.round(cx),Math.round(cy+3),'mansion'],[Math.round(cx-1),Math.round(cy),'tavern'],
+    [Math.round(cx+1),Math.round(cy),'dock'],[Math.round(cx-3),Math.round(cy),'tower'],
+    [Math.round(cx+3),Math.round(cy),'tower'],[Math.round(cx),Math.round(cy-3),'lighthouse'],
+    [Math.round(cx-2),Math.round(cy+2),'hut'],[Math.round(cx+2),Math.round(cy+2),'hut'],
+    [Math.round(cx-1),Math.round(cy+1),'cannon'],[Math.round(cx+1),Math.round(cy+1),'warehouse'],
+  ];
+  for (const [x,y,t] of placements) {
+    if (islandMask[y]?.[x]) { grid[y][x]=t; resources.pop += BUILDINGS[t].pop||0; }
+  }
+}
+
+function selectBuild(el, type) {
+  document.querySelectorAll('.bitem').forEach(e=>e.classList.remove('active'));
+  el.classList.add('active');
+  buildType = type;
+  const info = $('buildInfo');
+  if (type==='delete') { info.textContent='Кликните на здание, чтобы снести его'; return; }
+  const b = BUILDINGS[type];
+  const costs = Object.entries(b.cost).map(([k,v])=>`${v}${k==='wood'?'🪵':k==='stone'?'🪨':'💰'}`).join(' ');
+  info.textContent = `${b.name}: ${costs}`;
+}
+
+function canAfford(cost) {
+  return (!cost.wood||resources.wood>=cost.wood)&&(!cost.stone||resources.stone>=cost.stone)&&(!cost.gold||resources.gold>=cost.gold);
+}
+function spend(cost) {
+  resources.wood -= cost.wood||0; resources.stone -= cost.stone||0; resources.gold -= cost.gold||0;
+}
+function updateResUI() {
+  $('resWood').textContent = resources.wood;
+  $('resStone').textContent = resources.stone;
+  $('resGold').textContent = resources.gold;
+  $('resPop').textContent = resources.pop;
+}
+function flash(msg) {
+  const d = document.createElement('div');
+  d.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#1a0808;border:1px solid #8b2020;color:#ff8080;padding:12px 24px;font-family:Pirata One,serif;font-size:1.1rem;z-index:500;pointer-events:none;';
+  d.textContent = msg;
+  document.body.appendChild(d);
+  setTimeout(()=>d.remove(),1500);
+}
+
+function renderBuild(hx=-1, hy=-1) {
+  if (!buildCtx) return;
+  const W=buildCanvas.width, H=buildCanvas.height;
+  buildCtx.clearRect(0,0,W,H);
+
+  // Ocean
+  const oceanGrad = buildCtx.createRadialGradient(W/2,H/2,0,W/2,H/2,W*0.7);
+  oceanGrad.addColorStop(0,'#1a3040'); oceanGrad.addColorStop(1,'#0a1a24');
+  buildCtx.fillStyle=oceanGrad; buildCtx.fillRect(0,0,W,H);
+
+  // Ocean texture
+  buildCtx.globalAlpha=0.15;
+  for (let i=0;i<20;i++) {
+    buildCtx.beginPath(); buildCtx.moveTo(0,H*i/20);
+    for (let x=0;x<W;x+=40) buildCtx.lineTo(x,H*i/20+Math.sin(x*0.02+i)*5);
+    buildCtx.strokeStyle='#2a5060'; buildCtx.lineWidth=1; buildCtx.stroke();
+  }
+  buildCtx.globalAlpha=1;
+
+  // Island tiles
+  for (let y=0;y<gridH;y++) for (let x=0;x<gridW;x++) {
+    if (!islandMask[y]?.[x]) continue;
+    const cx=x*TILE, cy=y*TILE;
+    // Sand
+    buildCtx.fillStyle = '#c4a063'; buildCtx.fillRect(cx,cy,TILE,TILE);
+    // Variation
+    buildCtx.fillStyle='rgba(0,0,0,0.05)';
+    buildCtx.fillRect(cx+(x%3)*4,cy+(y%3)*4,8,8);
+    // Grid
+    buildCtx.strokeStyle='rgba(0,0,0,0.1)'; buildCtx.lineWidth=.5;
+    buildCtx.strokeRect(cx,cy,TILE,TILE);
+  }
+
+  // Hover highlight
+  if (hx>=0&&hy>=0&&islandMask[hy]?.[hx]) {
+    buildCtx.fillStyle=buildType==='delete'?'rgba(180,30,30,0.35)':'rgba(201,168,76,0.35)';
+    buildCtx.fillRect(hx*TILE,hy*TILE,TILE,TILE);
+  }
+
+  // Buildings
+  for (let y=0;y<gridH;y++) for (let x=0;x<gridW;x++) {
+    const type = grid[y]?.[x];
+    if (!type) continue;
+    const b = BUILDINGS[type];
+    const cx=x*TILE+TILE/2, cy=y*TILE+TILE/2;
+    buildCtx.save();
+    // Shadow
+    buildCtx.fillStyle='rgba(0,0,0,0.3)';
+    buildCtx.fillRect(x*TILE+3,y*TILE+3,TILE-4,TILE-4);
+    // Building base
+    buildCtx.fillStyle = b.color;
+    buildCtx.fillRect(x*TILE+1,y*TILE+1,TILE-2,TILE-2);
+    // Emoji
+    buildCtx.font = `${TILE*0.55}px serif`;
+    buildCtx.textAlign='center'; buildCtx.textBaseline='middle';
+    buildCtx.fillText(b.emoji, cx, cy);
+    buildCtx.restore();
+  }
+
+  // Island label
+  buildCtx.save();
+  buildCtx.font = "bold 14px 'Pirata One',serif";
+  buildCtx.fillStyle = 'rgba(201,168,76,0.7)';
+  buildCtx.textAlign='center';
+  buildCtx.fillText('🏝 Остров Черепахи — Либерталия', W/2, 20);
+  buildCtx.restore();
+}
+
+// ==========================================
+//  FPS GAME — RAYCASTER ENGINE
+// ==========================================
+let animId = null;
+const FPS_W = window.innerWidth, FPS_H = window.innerHeight - 5;
+let fpsCanvas, fpsCtx;
+
+// Map (from build grid)
+let MAP = [], MAP_W, MAP_H;
+
+// Player
+let player = { x:1.5,y:1.5,angle:0,health:100,speed:0.07,rotSpeed:0.05 };
+
+// Weapons
+const WEAPONS = [
+  { name:'Пистолет', ammo:12, maxAmmo:48, dmg:25, rate:400, icon:'🔫', color:'#ccc', spread:.02 },
+  { name:'Мушкет',   ammo:1,  maxAmmo:12, dmg:80, rate:1800,icon:'🪖', color:'#a08050', spread:.04 },
+  { name:'Сабля',    ammo:999,maxAmmo:999,dmg:50, rate:300, icon:'⚔', color:'#d4a000', melee:true, meleeDist:1.5 },
+];
+let curWeapon = 0, lastShot = 0, reloading = false;
+
+// Enemies (bots)
+let enemies = [], wave = 1, kills = 0;
+const ENEMY_TYPES = [
+  { name:'Пират',    hp:60,  spd:.025,dmg:8,  color:'#8b2020', emoji:'☠' },
+  { name:'Капитан',  hp:120, spd:.02, dmg:15, color:'#4a0a8a', emoji:'👑' },
+  { name:'Стрелок',  hp:40,  spd:.018,dmg:20, color:'#2a4a1a', emoji:'🎯' },
+];
+
+// Bullets & Effects
+let bullets = [], effects = [];
+
+// Cannon balls (from towers)
+let cannonBalls = [];
+
+// Keys
+const keys = {};
+let mouseX_delta = 0, locked = false;
+
+function buildFPSMap() {
+  if (!grid) { MAP_W=20; MAP_H=20; MAP=Array.from({length:MAP_H},()=>Array(MAP_W).fill(0)); MAP[0]=MAP[MAP_H-1]=Array(MAP_W).fill(1); return; }
+  MAP_W = gridW; MAP_H = gridH;
+  MAP = Array.from({length:MAP_H},(_,y)=>Array.from({length:MAP_W},(_,x)=>{
+    if (!islandMask[y]?.[x]) return 2; // ocean = wall
+    const t = grid[y]?.[x];
+    if (!t) return 0;
+    if (t==='wall'||t==='tower') return 1;
+    if (t==='mansion') return 3;
+    if (t==='cannon') return 4;
+    return 5;
+  }));
+}
+
+function spawnWave() {
+  enemies = [];
+  const count = 3 + wave * 2;
+  for (let i=0;i<count;i++) {
+    let ex,ey,tries=0;
+    do { ex=1+Math.random()*(MAP_W-2); ey=1+Math.random()*(MAP_H-2); tries++; } while((MAP[~~ey]?.[~~ex]||0)>0 && tries<50);
+    if (dist(ex,ey,player.x,player.y)<5) { ex += 5+Math.random()*3; ey += 5+Math.random()*3; }
+    const type = ENEMY_TYPES[wave>3?Math.floor(Math.random()*3):Math.floor(Math.random()*2)];
+    enemies.push({ x:ex,y:ey,hp:type.hp,maxHp:type.hp,spd:type.spd,dmg:type.dmg,color:type.color,emoji:type.emoji,name:type.name,lastHit:0,shootCd:0,alive:true,angle:0 });
+  }
+  $('waveInfo').textContent='Волна '+wave+' ('+count+' врагов)';
+  addKillFeed('⚠ Волна '+wave+'! '+count+' врагов!', '#ffcc00');
+}
+
+function startFPS() {
+  $('mainMenu').style.display='none';
+  $('buildMenu').style.display='none';
+  $('fpsGame').style.display='flex';
+  $('hud').style.display='block';
+  $('deathScreen').style.display='none';
+  $('pauseScreen').style.display='none';
+
+  fpsCanvas = $('fpsCanvas');
+  fpsCanvas.width = FPS_W; fpsCanvas.height = FPS_H;
+  fpsCtx = fpsCanvas.getContext('2d');
+
+  buildFPSMap();
+
+  // Find open spawn
+  player = { x:MAP_W/2, y:MAP_H/2+2, angle:0, health:100, speed:.07, rotSpeed:.05 };
+  for (let tries=0;tries<100;tries++) {
+    const tx=1+Math.random()*(MAP_W-2), ty=1+Math.random()*(MAP_H-2);
+    if ((MAP[~~ty]?.[~~tx]||0)===0) { player.x=tx; player.y=ty; break; }
+  }
+
+  kills=0; wave=1; curWeapon=0; bullets=[]; effects=[]; cannonBalls=[];
+  WEAPONS[0].ammo=12; WEAPONS[0].maxAmmo=48; WEAPONS[1].ammo=1; WEAPONS[1].maxAmmo=12;
+  $('kills').textContent=0;
+  updateHUD();
+  spawnWave();
+
+  fpsCanvas.requestPointerLock = fpsCanvas.requestPointerLock || fpsCanvas.mozRequestPointerLock;
+  fpsCanvas.onclick = () => fpsCanvas.requestPointerLock();
+  document.addEventListener('pointerlockchange', () => {
+    locked = document.pointerLockElement===fpsCanvas || document.mozPointerLockElement===fpsCanvas;
+  });
+
+  if (animId) cancelAnimationFrame(animId);
+  gameLoop();
+}
+
+function restartFPS() { $('deathScreen').style.display='none'; startFPS(); }
+
+function gameLoop() {
+  update();
+  render3D();
+  renderHUD();
+  animId = requestAnimationFrame(gameLoop);
+}
+
+let lastTime = 0;
+function update() {
+  const now = Date.now();
+  const dt = Math.min(now - lastTime, 50);
+  lastTime = now;
+  if (!locked) return;
+
+  // Rotate
+  player.angle += mouseX_delta * 0.002;
+  mouseX_delta = 0;
+
+  // Move
+  let dx=0,dy=0;
+  if (keys['KeyW']||keys['ArrowUp'])    { dx+=Math.cos(player.angle)*player.speed; dy+=Math.sin(player.angle)*player.speed; }
+  if (keys['KeyS']||keys['ArrowDown'])  { dx-=Math.cos(player.angle)*player.speed; dy-=Math.sin(player.angle)*player.speed; }
+  if (keys['KeyA']||keys['ArrowLeft'])  { dx+=Math.cos(player.angle-Math.PI/2)*player.speed; dy+=Math.sin(player.angle-Math.PI/2)*player.speed; }
+  if (keys['KeyD']||keys['ArrowRight']) { dx+=Math.cos(player.angle+Math.PI/2)*player.speed; dy+=Math.sin(player.angle+Math.PI/2)*player.speed; }
+
+  const nx=player.x+dx, ny=player.y+dy;
+  if ((MAP[~~ny]?.[~~nx]||2)===0) { player.x=nx; player.y=ny; }
+  else if ((MAP[~~player.y]?.[~~nx]||2)===0) player.x=nx;
+  else if ((MAP[~~ny]?.[~~player.x]||2)===0) player.y=ny;
+
+  // Bullets
+  bullets = bullets.filter(b=>{
+    b.x+=Math.cos(b.angle)*b.spd; b.y+=Math.sin(b.angle)*b.spd; b.life--;
+    if (b.life<=0||(MAP[~~b.y]?.[~~b.x]||2)>0) { addEffect(b.x,b.y,'💨'); return false; }
+    for (const e of enemies) {
+      if (!e.alive) continue;
+      if (dist(b.x,b.y,e.x,e.y)<0.5) {
+        e.hp -= b.dmg; addEffect(e.x,e.y,'💥');
+        if (e.hp<=0) { e.alive=false; kills++; $('kills').textContent=kills; addKillFeed('☠ '+e.name+' убит!'); }
+        return false;
+      }
+    }
+    return true;
+  });
+
+  // Enemy AI
+  for (const e of enemies) {
+    if (!e.alive) continue;
+    const a = Math.atan2(player.y-e.y, player.x-e.x);
+    e.angle = a;
+    const dx2=Math.cos(a)*e.spd, dy2=Math.sin(a)*e.spd;
+    const enx=e.x+dx2,eny=e.y+dy2;
+    if ((MAP[~~eny]?.[~~enx]||2)===0) { e.x=enx; e.y=eny; }
+    const d=dist(e.x,e.y,player.x,player.y);
+    if (d<0.8 && now-e.lastHit>600) {
+      player.health -= e.dmg; e.lastHit=now;
+      damageFlash();
+      if (player.health<=0) { player.health=0; die(); return; }
+    }
+    // Enemy shoots
+    if (d<8 && now-e.shootCd>2000 && Math.random()<0.3) {
+      e.shootCd=now;
+      bullets.push({ x:e.x,y:e.y,angle:a+((Math.random()-.5)*0.15),spd:.12,life:80,dmg:e.dmg,fromEnemy:true });
+    }
+  }
+
+  // Player hit from enemy bullets
+  bullets = bullets.filter(b=>{
+    if (!b.fromEnemy) return true;
+    if (dist(b.x,b.y,player.x,player.y)<0.4) {
+      player.health-=b.dmg*0.3; damageFlash();
+      if (player.health<=0){ player.health=0; die(); }
+      addEffect(player.x,player.y,'💢'); return false;
+    }
+    return true;
+  });
+
+  // Cannon balls (from cannon buildings)
+  if (Math.random()<0.003*wave) {
+    for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++) {
+      if (grid?.[y]?.[x]==='cannon') {
+        if (Math.random()<0.02) {
+          const a=Math.atan2(player.y-y,player.x-x);
+          cannonBalls.push({x:x+.5,y:y+.5,angle:a+((Math.random()-.5)*.3),spd:.06,life:120,dmg:40});
+        }
+      }
+    }
+  }
+  cannonBalls=cannonBalls.filter(b=>{
+    b.x+=Math.cos(b.angle)*b.spd; b.y+=Math.sin(b.angle)*b.spd; b.life--;
+    if(b.life<=0||(MAP[~~b.y]?.[~~b.x]||2)>0){addEffect(b.x,b.y,'💥💥');return false;}
+    if(dist(b.x,b.y,player.x,player.y)<0.6){player.health-=b.dmg;damageFlash();addEffect(player.x,player.y,'💢💢');return false;}
+    return true;
+  });
+
+  // Effects
+  effects=effects.filter(e=>{e.life--;return e.life>0;});
+
+  // Wave clear
+  if (enemies.length>0 && enemies.every(e=>!e.alive)) {
+    wave++; resources.gold+=20+wave*10; resources.wood+=10; resources.stone+=5;
+    updateResUI();
+    addKillFeed('🏆 Волна '+( wave-1)+' пройдена! +Ресурсы','#ffcc00');
+    setTimeout(spawnWave,2000);
+  }
+  updateHUD();
+}
+
+function damageFlash() {
+  fpsCanvas.style.boxShadow='inset 0 0 60px rgba(255,0,0,0.5)';
+  setTimeout(()=>fpsCanvas.style.boxShadow='',200);
+}
+
+function die() {
+  cancelAnimationFrame(animId); animId=null;
+  document.exitPointerLock();
+  $('deathMsg').textContent=`Ты убит на волне ${wave}. Уничтожено врагов: ${kills}`;
+  $('deathScreen').style.display='flex';
+}
+
+function dist(ax,ay,bx,by){return Math.sqrt((ax-bx)**2+(ay-by)**2);}
+
+// ===== RAYCASTER =====
+function render3D() {
+  if (!fpsCtx) return;
+  const W=FPS_W, H=FPS_H;
+  fpsCtx.clearRect(0,0,W,H);
+
+  // Sky gradient
+  const sky=fpsCtx.createLinearGradient(0,0,0,H*0.5);
+  sky.addColorStop(0,'#0a1520'); sky.addColorStop(1,'#1a3a5a');
+  fpsCtx.fillStyle=sky; fpsCtx.fillRect(0,0,W,H*0.5);
+
+  // Ground
+  const gnd=fpsCtx.createLinearGradient(0,H*0.5,0,H);
+  gnd.addColorStop(0,'#3a2a10'); gnd.addColorStop(1,'#1a1008');
+  fpsCtx.fillStyle=gnd; fpsCtx.fillRect(0,H*0.5,W,H*0.5);
+
+  // FOG of distant ground
+  fpsCtx.fillStyle='rgba(20,15,5,0.3)';fpsCtx.fillRect(0,H*0.5,W,20);
+
+  const FOV=Math.PI/3, HALF_FOV=FOV/2;
+  const zBuffer=[];
+
+  // Raycast walls
+  for (let col=0;col<W;col++) {
+    const angle=player.angle - HALF_FOV + (col/W)*FOV;
+    let x=player.x, y=player.y;
+    const cos=Math.cos(angle), sin=Math.sin(angle);
+    let d=0, hit=0, side=0;
+    for (let step=0;step<80;step++) {
+      d+=0.06; x=player.x+cos*d; y=player.y+sin*d;
+      hit=MAP[~~y]?.[~~x]||0;
+      if (hit>0) { side=(Math.abs(x-Math.round(x))<Math.abs(y-Math.round(y)))?1:0; break; }
+    }
+    const wallH = Math.min(H, (H/d)*1.1);
+    const top=(H-wallH)/2;
+    zBuffer[col]=d;
+
+    // Wall color
+    let wc='#5a4a3a';
+    if (hit===1) wc=side?'#4a4030':'#6a5a40'; // stone wall
+    else if (hit===2) wc=side?'#0a1520':'#1a2530'; // ocean/OOB
+    else if (hit===3) wc=side?'#6a5030':'#9a7a50'; // mansion
+    else if (hit===4) wc=side?'#2a2a2a':'#404040'; // cannon tower
+    else wc=side?'#3a2a10':'#5a4020'; // other buildings
+
+    // Distance shading
+    const shade=Math.max(0,1-d/16);
+    fpsCtx.fillStyle=shadeColor(wc,shade);
+    fpsCtx.fillRect(col,top,1,wallH);
+  }
+
+  // Sprites (enemies)
+  const sprites=[...enemies.filter(e=>e.alive).map(e=>({...e,type:'enemy'})),
+                 ...effects.map(e=>({...e,type:'effect'}))];
+  sprites.sort((a,b)=>dist(b.x,b.y,player.x,player.y)-dist(a.x,a.y,player.x,player.y));
+  for (const s of sprites) {
+    const dx=s.x-player.x, dy=s.y-player.y;
+    const d2=dist(s.x,s.y,player.x,player.y);
+    if (d2<0.5||d2>20) continue;
+    let angle=Math.atan2(dy,dx)-player.angle;
+    while(angle>Math.PI)angle-=2*Math.PI; while(angle<-Math.PI)angle+=2*Math.PI;
+    if (Math.abs(angle)>HALF_FOV*1.4) continue;
+    const sx=(0.5+(angle/FOV))*W;
+    const sz=Math.min(H*2,H/d2*0.9);
+    const sy=(H-sz)/2;
+    const col=~~sx;
+    if (zBuffer[col]&&d2>zBuffer[col]) continue;
+    if (s.type==='enemy') {
+      fpsCtx.save();
+      fpsCtx.globalAlpha=Math.max(0.3,1-d2/12);
+      // Health bar
+      const hbW=sz*0.8, hbX=sx-hbW/2;
+      fpsCtx.fillStyle='#330000'; fpsCtx.fillRect(hbX,sy-8,hbW,5);
+      fpsCtx.fillStyle='#cc2020'; fpsCtx.fillRect(hbX,sy-8,hbW*(s.hp/s.maxHp),5);
+      // Enemy emoji
+      fpsCtx.font=`${sz*0.7}px serif`;fpsCtx.textAlign='center';fpsCtx.textBaseline='middle';
+      fpsCtx.fillText(s.emoji,sx,sy+sz*0.35);
+      fpsCtx.restore();
+    } else if (s.type==='effect') {
+      fpsCtx.save();
+      fpsCtx.globalAlpha=s.life/15;
+      fpsCtx.font=`${sz*0.5}px serif`;fpsCtx.textAlign='center';fpsCtx.textBaseline='middle';
+      fpsCtx.fillText(s.txt,sx,sy+sz*0.3);
+      fpsCtx.restore();
+    }
+  }
+
+  // Weapon viewmodel
+  drawWeapon();
+}
+
+function shadeColor(hex,shade){
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  return `rgb(${~~(r*shade)},${~~(g*shade)},${~~(b*shade)})`;
+}
+
+let bobAnim=0;
+function drawWeapon() {
+  const W=FPS_W, H=FPS_H;
+  bobAnim += (keys['KeyW']||keys['KeyS']||keys['KeyA']||keys['KeyD'])?0.15:0;
+  const bob=Math.sin(bobAnim)*8;
+  const w=WEAPONS[curWeapon];
+  fpsCtx.save();
+  fpsCtx.font=`${H*0.22}px serif`;
+  fpsCtx.textAlign='right'; fpsCtx.textBaseline='bottom';
+  fpsCtx.globalAlpha=0.9;
+  fpsCtx.fillText(w.icon, W*0.85, H-20+bob);
+  fpsCtx.restore();
+}
+
+function renderHUD() {
+  // Minimap
+  const mc=$('minimapCanvas'), mctx=mc.getContext('2d');
+  const mW=mc.width, mH=mc.height;
+  mctx.clearRect(0,0,mW,mH);
+  const scX=mW/MAP_W, scY=mH/MAP_H;
+  for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++) {
+    const t=MAP[y]?.[x]||0;
+    mctx.fillStyle=t===0?'#2a1a08':t===2?'#0a1520':t===3?'#7a5030':t===1?'#5a5040':'#3a3a3a';
+    mctx.fillRect(x*scX,y*scY,scX,scY);
+  }
+  // Player on minimap
+  mctx.fillStyle='#ffcc00';
+  mctx.beginPath(); mctx.arc(player.x*scX,player.y*scY,3,0,Math.PI*2); mctx.fill();
+  mctx.strokeStyle='#ffcc00'; mctx.lineWidth=1;
+  mctx.beginPath(); mctx.moveTo(player.x*scX,player.y*scY);
+  mctx.lineTo(player.x*scX+Math.cos(player.angle)*8,player.y*scY+Math.sin(player.angle)*8);
+  mctx.stroke();
+  // Enemies on minimap
+  for (const e of enemies) {
+    if (!e.alive) continue;
+    mctx.fillStyle='#ff3020';
+    mctx.beginPath(); mctx.arc(e.x*scX,e.y*scY,2,0,Math.PI*2); mctx.fill();
+  }
+}
+
+function updateHUD() {
+  const hp=Math.max(0,~~player.health);
+  $('healthFill').style.width=hp+'%';
+  $('healthText').textContent=hp+' HP';
+  const w=WEAPONS[curWeapon];
+  $('weaponName').textContent=w.icon+' '+w.name;
+  $('ammoCount').textContent=w.ammo===999?'∞':`${w.ammo} / ${w.maxAmmo}`;
+}
+
+function addEffect(x,y,txt) { effects.push({x,y,txt,life:15}); }
+function addKillFeed(txt,color='#ff6060') {
+  const kf=$('killFeed');
+  const el=document.createElement('div');
+  el.className='kfeed'; el.style.color=color; el.textContent=txt;
+  kf.appendChild(el);
+  setTimeout(()=>el.remove(),3000);
+}
+
+// ===== INPUT =====
+document.addEventListener('keydown', e=>{
+  keys[e.code]=true;
+  if (e.code==='Escape') {
+    if ($('fpsGame').style.display!=='none') {
+      if (locked) { document.exitPointerLock(); $('pauseScreen').style.display='flex'; }
+      else resumeGame();
+    }
+  }
+  if (e.code==='KeyR') reload();
+  if (e.code==='Digit1') switchWeapon(0);
+  if (e.code==='Digit2') switchWeapon(1);
+  if (e.code==='Digit3') switchWeapon(2);
+  if (e.code==='KeyE') { resources.wood+=30; resources.stone+=20; resources.gold+=50; updateResUI(); }
+});
+document.addEventListener('keyup', e=>{ keys[e.code]=false; });
+
+document.addEventListener('mousemove', e=>{
+  if (locked) mouseX_delta += e.movementX||e.mozMovementX||0;
+});
+
+document.addEventListener('mousedown', e=>{
+  if (!locked) return;
+  if (e.button===0) shoot();
+});
+
+function resumeGame() {
+  $('pauseScreen').style.display='none';
+  fpsCanvas.requestPointerLock();
+}
+
+function switchWeapon(i) { curWeapon=i; updateHUD(); }
+
+function shoot() {
+  const now=Date.now();
+  const w=WEAPONS[curWeapon];
+  if (reloading||now-lastShot<w.rate) return;
+  if (w.ammo<=0) { reload(); return; }
+  lastShot=now;
+  if (w.ammo!==999) w.ammo--;
+  updateHUD();
+
+  if (w.melee) {
+    for (const e of enemies) {
+      if (!e.alive) continue;
+      if (dist(e.x,e.y,player.x,player.y)<w.meleeDist) {
+        const a=Math.atan2(e.y-player.y,e.x-player.x);
+        if (Math.abs(a-player.angle)<Math.PI/3) {
+          e.hp-=w.dmg; addEffect(e.x,e.y,'⚔');
+          if(e.hp<=0){e.alive=false;kills++;$('kills').textContent=kills;addKillFeed('☠ '+e.name+' зарублен!');}
+        }
+      }
+    }
+    return;
+  }
+  for(let i=0;i<(curWeapon===0?1:1);i++){
+    const sp=(Math.random()-.5)*w.spread;
+    bullets.push({x:player.x,y:player.y,angle:player.angle+sp,spd:.18,life:60,dmg:w.dmg});
+  }
+  // Muzzle flash
+  fpsCtx.save(); fpsCtx.globalAlpha=0.4;
+  fpsCtx.fillStyle='#ffdd88';
+  fpsCtx.beginPath(); fpsCtx.arc(FPS_W*.8,FPS_H*.78,30,0,Math.PI*2); fpsCtx.fill();
+  fpsCtx.restore();
+}
+
+function reload() {
+  if (reloading) return;
+  const w=WEAPONS[curWeapon];
+  if (w.ammo===999) return;
+  if (w.ammo===w.maxAmmo) return;
+  reloading=true;
+  addKillFeed('🔄 Перезарядка...','#aaa');
+  const reloadTime=curWeapon===1?2000:800;
+  setTimeout(()=>{
+    const need=w.maxAmmo-w.ammo;
+    const give=Math.min(need,resources.gold>10?w.maxAmmo:w.ammo+3);
+    w.ammo=Math.min(w.maxAmmo, w.ammo+give);
+    reloading=false; updateHUD();
+  },reloadTime);
+}
+</script>
+</body>
+</html>
